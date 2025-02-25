@@ -1,0 +1,60 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+}
+
+#tree-container {
+    width: 100%;
+    overflow: auto;
+}
+
+.node {
+    fill: #4CAF50;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.node:hover {
+    fill: #45a049;
+}
+
+.node-text {
+    font-family: Arial, sans-serif;
+    font-size: 16px;
+    fill: white;
+    text-anchor: middle;
+    dominant-baseline: central;
+    pointer-events: none;
+    user-select: none;
+}
+
+.node-text.hidden {
+    opacity: 0;
+}
+
+.node-text.visible {
+    opacity: 1;
+}
+
+.link {
+    fill: none;
+    stroke: #999;
+    stroke-width: 2px;
+}
+
+/* Add this to your existing CSS */
+.back-button {
+    margin-top: 20px;
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}
+
+.back-button:hover {
+    background-color: #45a049;
+}

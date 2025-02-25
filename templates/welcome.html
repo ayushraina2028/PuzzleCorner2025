@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Second Max Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            background-color: #f5f5f5;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 50px;
+        }
+        h1 {
+            color: #4CAF50;
+        }
+        .generate-button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            margin: 20px 0;
+        }
+        .generate-button:hover {
+            background-color: #45a049;
+        }
+        #random-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+            margin: 20px 0;
+            min-height: 36px;
+        }
+        .start-button {
+            background-color: #2196F3;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 20px;
+        }
+        .start-button:hover {
+            background-color: #1976D2;
+        }
+        .start-button.disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Second Max Game</h1>
+        <p>Click the button to generate a random number between 1 and 17</p>
+        <button onclick="generateNumber()" class="generate-button">Generate Random Number</button>
+        <div id="random-number"></div>
+        <a href="#" id="start-link" class="start-button disabled">Start Game</a>
+    </div>
+
+    <script>
+        let currentNumber = null;
+
+        function generateNumber() {
+            fetch('/get_random_number')
+                .then(response => response.json())
+                .then(data => {
+                    currentNumber = data.number;
+                    document.getElementById('random-number').textContent = `Generated Number: ${currentNumber}`;
+                    
+                    // Enable the Start Game button and update its href
+                    const startLink = document.getElementById('start-link');
+                    startLink.classList.remove('disabled');
+                    startLink.href = `/tree/${currentNumber}`;
+                });
+        }
+    </script>
+</body>
+</html>
