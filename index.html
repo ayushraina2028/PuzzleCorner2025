@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Minecraft-like World</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        #gameContainer { width: 100vw; height: 100vh; }
+        #ui {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: Arial;
+            user-select: none;
+        }
+        .block-selector {
+            margin: 5px;
+            padding: 5px;
+            background: rgba(0,0,0,0.5);
+            cursor: pointer;
+        }
+        #crosshair {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer"></div>
+    <div id="ui">
+        <div id="blockSelector"></div>
+        <div id="biomeSelector"></div>
+    </div>
+    <div id="crosshair">+</div>
+
+    <!-- Three.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
+
+    <script>
+        // Initialize core components
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('gameContainer').appendChild(renderer.domElement);
+
+        // Block types and their colors
+        const BLOCK_TYPES = {
+            GRASS: { color: 0x3d9e3d, name: 'Grass' },
+            DIRT: { color: 0x8b4513, name: 'Dirt' },
+            STONE: { color: 0x808080, name: 'Stone' },
+            SAND: { color: 0xc2b280, name: 'Sand' },
+            WOOD: { color: 0x4a2810, name: 'Wood' }
+        };
+
+        // Current selected block type
+        let selectedBlock = 'GRASS';
+
+        // Player movement variables
+        const moveSpeed = 0.1;
+        const gravity = -0.01;
+        let playerVelocity = new THREE.Vector3();
+        let playerOnGround = false;
+
+        // Mouse control variables
+        let mouseEnabled = false;
+        document.addEventListener('click', () => {
+            if (!mouseEnabled) {
+                document.body.requestPointerLock();
+                mouseEnabled = true;
+            }
+        });
+
+        // Create world chunks
+        const CHUNK_SIZE = 16;
+        const WORLD_SIZE = 4;
+        const chunks = new Map();
+
+        // Simplex noise for terrain generation
+        const noise = new SimplexNoise();
+
+        // Generate terrain
+        function generateTerrain(x, z, biome) {
+            const height = Math.floor(
+                noise.noise2D(x * 0.05, z * 0.05) * 10 +
+                noise.noise2D(x * 0.1, z * 0.1) * 5
+            );
+
+            let blockType = BLOCK_TYPES.GRASS;
+            if (biome === 'desert') {
+                blockType = BLOCK_TYPES.SAND;
+            } else if (height > 8) {
+                blockType = BLOCK_TYPES.STONE;
+            }
+
+            return { height, blockType };
+        }
+
+        // Create a block
+        function createBlock(x, y, z, blockType) {
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+            const material = new THREE.MeshPhongMaterial({ color: blockType.color });
+            const block = new THREE.Mesh(geometry, material);
+            block.position.set(x, y, z);
+            block.userData.type = blockType;
+            scene.add(block);
+            return block;
+        }
+
+        // Initialize world
+        function initWorld() {
+            // Add lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight(0xffffff, 0.6);
+            sunLight.position.set(10, 100, 10);
+            scene.add(sunLight);
+
+            // Generate initial chunks
+            for (let x = -WORLD_SIZE; x < WORLD_SIZE; x++) {
+                for (let z = -WORLD_SIZE; z < WORLD_SIZE; z++) {
+                    const { height, blockType } = generateTerrain(x, z, 'normal');
+                    createBlock(x, height, z, blockType);
+                }
+            }
+        }
+
+        // Player controls
+        const keys = {};
+        document.addEventListener('keydown', (e) => keys[e.code] = true);
+        document.addEventListener('keyup', (e) => keys[e.code] = false);
+
+        document.addEventListener('mousemove', (e) => {
+            if (mouseEnabled) {
+                camera.rotation.y -= e.movementX * 0.002;
+                camera.rotation.x -= e.movementY * 0.002;
+                camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
+            }
+        });
+
+        // Block placement
+        function placeBlock() {
+            const raycaster = new THREE.Raycaster();
+            const direction = new THREE.Vector3();
+            camera.getWorldDirection(direction);
+            raycaster.set(camera.position, direction);
+
+            const intersects = raycaster.intersectObjects(scene.children);
+            if (intersects.length > 0) {
+                const point = intersects[0].point;
+                const normal = intersects[0].face.normal;
+                const position = new THREE.Vector3()
+                    .copy(point)
+                    .add(normal)
+                    .floor();
+                createBlock(position.x, position.y, position.z, BLOCK_TYPES[selectedBlock]);
+            }
+        }
+
+        // Remove block
+        function removeBlock() {
+            const raycaster = new THREE.Raycaster();
+            const direction = new THREE.Vector3();
+            camera.getWorldDirection(direction);
+            raycaster.set(camera.position, direction);
+
+            const intersects = raycaster.intersectObjects(scene.children);
+            if (intersects.length > 0) {
+                scene.remove(intersects[0].object);
+            }
+        }
+
+        // Mouse controls for block placement/removal
+        document.addEventListener('mousedown', (e) => {
+            if (mouseEnabled) {
+                if (e.button === 0) placeBlock();
+                if (e.button === 2) removeBlock();
+            }
+        });
+
+        // Update loop
+        function update() {
+            // Player movement
+            if (keys['KeyW']) {
+                camera.position.z -= Math.cos(camera.rotation.y) * moveSpeed;
+                camera.position.x -= Math.sin(camera.rotation.y) * moveSpeed;
+            }
+            if (keys['KeyS']) {
+                camera.position.z += Math.cos(camera.rotation.y) * moveSpeed;
+                camera.position.x += Math.sin(camera.rotation.y) * moveSpeed;
+            }
+            if (keys['KeyA']) {
+                camera.position.x -= Math.cos(camera.rotation.y) * moveSpeed;
+                camera.position.z += Math.sin(camera.rotation.y) * moveSpeed;
+            }
+            if (keys['KeyD']) {
+                camera.position.x += Math.cos(camera.rotation.y) * moveSpeed;
+                camera.position.z -= Math.sin(camera.rotation.y) * moveSpeed;
+            }
+            if (keys['Space'] && playerOnGround) {
+                playerVelocity.y = 0.2;
+                playerOnGround = false;
+            }
+
+            // Apply gravity
+            playerVelocity.y += gravity;
+            camera.position.y += playerVelocity.y;
+
+            // Simple ground collision
+            if (camera.position.y < 2) {
+                camera.position.y = 2;
+                playerVelocity.y = 0;
+                playerOnGround = true;
+            }
+
+            renderer.render(scene, camera);
+            requestAnimationFrame(update);
+        }
+
+        // Initialize game
+        function init() {
+            camera.position.set(0, 2, 5);
+            initWorld();
+            
+            // Create UI for block selection
+            const blockSelector = document.getElementById('blockSelector');
+            Object.entries(BLOCK_TYPES).forEach(([type, data]) => {
+                const button = document.createElement('div');
+                button.className = 'block-selector';
+                button.textContent = data.name;
+                button.onclick = () => selectedBlock = type;
+                blockSelector.appendChild(button);
+            });
+
+            update();
+        }
+
+        init();
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
